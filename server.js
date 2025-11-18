@@ -1,41 +1,35 @@
 const express = require("express");
-const cors = require("cors");
-const { spawn } = require("child_process");
-
+const ytdl = require("ytdl-core");
 const app = express();
-app.use(cors());
 
-app.get("/", (req, res) => {
-    res.send("API YouTube MTA funcionando.");
-});
+// Endpoint principal de la API
+app.get("/play", async (req, res) => {
+  const url = req.query.url;
+  
+  if (!url) return res.status(400).send("Falta el link de YouTube");
 
-app.get("/play", (req, res) => {
-    const url = req.query.url;
+  try {
+    // Obtiene información del video
+    const info = await ytdl.getInfo(url);
+    const format = ytdl.chooseFormat(info.formats, { quality: "18" });
 
-    if (!url) {
-        return res.status(400).send("Falta ?url=");
-    }
-
-    res.setHeader("Content-Type", "video/mp4");
-
-    const process = spawn("yt-dlp", [
-        "-f", "mp4",
-        "-o", "-",
-        url
-    ]);
-
-    process.stdout.pipe(res);
-
-    process.stderr.on("data", data => {
-        console.log("ERROR:", data.toString());
+    // Devuelve el link directo del stream en JSON
+    res.json({
+      title: info.videoDetails.title,
+      stream: format.url
     });
 
-    process.on("close", () => {
-        res.end();
-    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("Error al obtener el video: " + e.message);
+  }
 });
 
+// Servir un HTML simple para pruebas
+app.use(express.static("public"));
+
+// Inicia el servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log("API lista en puerto " + PORT);
+  console.log(`API YOUTUBE lista en el puerto ${PORT}`);
 });
